@@ -8,5 +8,6 @@ using JuMP
     include("cfl.jl")
     include("scfl.jl")
     include("snip.jl")
+    include("mcndp.jl")
     @info "Callback Typical Tests completed"
 end
