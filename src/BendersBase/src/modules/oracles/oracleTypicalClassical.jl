@@ -1,4 +1,4 @@
-export ClassicalOracle, ClassicalOracleParam
+export ClassicalOracle, ClassicalOracleParam, _parse_gbc_result, _set_gbc_bounds!, _accumulate_gbc_duals!
 
 const ClassicalOracleParam = BasicOracleParam
 

@@ -1,3 +1,5 @@
+export read_mcndp_instance
+
 using JSON
 
 struct MCNDPData <: AbstractData
