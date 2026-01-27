@@ -7,6 +7,7 @@ mutable struct UnifiedOracle <: AbstractTypicalOracle
     param::UnifiedOracleParam
 
     model::Model
+    fixed_x_constraints::Vector{ConstraintRef}
 
     gbc_lhs::Vector{VariableRef}
     gbc_rhs::Vector{Union{VariableRef, AffExpr}}
@@ -33,12 +34,13 @@ mutable struct UnifiedOracle <: AbstractTypicalOracle
             x = var_from_tuple(x_copy)
 
             # Reformulate subproblem
-            model_reformulation!(model, w0; x = model[:w])
-
+            model_reformulation!(model, w0; x = model[:w]) # fixing constraint
+            @constraint(model, fix_x, x .== 0)
+            write_to_file(model, "after_reformulation.lp")
             # Parse the result to extract GBC information
             gbc_lhs, gbc_rhs, gbc_sense = _parse_gbc_result(result, x)
 
-            new(param, model, gbc_lhs, gbc_rhs, gbc_sense, w0)
+            new(param, model, fix_x, gbc_lhs, gbc_rhs, gbc_sense, w0)
     end
 
     UnifiedOracle() = new()
@@ -47,11 +49,12 @@ end
 function generate_cuts(oracle::UnifiedOracle, x_value::Vector{Float64}, t_value::Vector{Float64}; tol_normalize = 1.0, time_limit = 3600)
     set_time_limit_sec(oracle.model, time_limit)
 
+    set_normalized_rhs.(oracle.fixed_x_constraints, x_value)
     set_normalized_rhs.(oracle.model[:epigraph], -t_value)
 
     # Set GBC bounds based on expression evaluation
     _set_gbc_bounds!(oracle.gbc_lhs, oracle.gbc_rhs, oracle.gbc_sense, x_value)
-
+    write_to_file(oracle.model, "after_normalization.lp")
     optimize!(oracle.model)
     
     if termination_status(oracle.model) == TIME_LIMIT
@@ -60,14 +63,14 @@ function generate_cuts(oracle::UnifiedOracle, x_value::Vector{Float64}, t_value:
         throw(UnexpectedModelStatusException("UnifiedOracle: $(termination_status(oracle.model)). This is likely a numerical issue."))
     end
 
-    a_x = zeros(length(x_value))
+    a_x = dual.(oracle.fixed_x_constraints)
 
     # Accumulate GBC dual values
     _accumulate_gbc_duals!(a_x, oracle.gbc_lhs, oracle.gbc_rhs, oracle.gbc_sense)
 
     a_t = [-dual(oracle.model[:epigraph])]
     a_0 = objective_value(oracle.model) - a_x'*x_value + dual(oracle.model[:epigraph])*t_value[1]
-    
+
     return isapprox(dual_objective_value(oracle.model), 0, atol=oracle.param.zero_tol) ? (true, [Hyperplane(a_x, a_t, a_0)], [NaN]) : (false, [Hyperplane(a_x, a_t, a_0)], [NaN])
 end
 

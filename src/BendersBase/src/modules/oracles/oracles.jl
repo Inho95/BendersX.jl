@@ -71,4 +71,5 @@ end
 include("oracleTypicalClassical.jl")
 include("oracleTypicalSeparable.jl")
 # include("oracleTypicalUnified.jl")
+# include("oracleTypicalUnified_simple.jl")
 include("oracleTypicalUnified_gbc.jl")
