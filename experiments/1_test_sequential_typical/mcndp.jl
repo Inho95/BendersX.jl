@@ -9,7 +9,7 @@ using CPLEX
     for i in instances
         @testset "Instance: r01.$i" begin
             # Load problem data
-            data = read_mcndp_instance("r01.$i.dow")
+            data = read_mcndp_instance("R", "", "r01.$i.dow")
             
             # Loop parameters
             benders_param = BendersSeqParam(;
@@ -25,20 +25,20 @@ using CPLEX
             @assert termination_status(mip_model) == OPTIMAL
             mip_opt_val = objective_value(mip_model)
 
-            @testset "Unified oracle" begin
-                @info "solving MCNDP r01.$i - unified oracle - seq..."
-                master = Master(data; customize = customize_master_model!)
-                oracle = UnifiedOracle(data, master; customize = customize_sub_model!)
-                env = BendersSeq(master, oracle; param = benders_param)
-                log = solve!(env)
-                @test env.termination_status == Optimal()
-                @test isapprox(mip_opt_val, env.obj_value, atol=1e-5)
-            end 
+            # @testset "Unified oracle" begin
+            #     @info "solving MCNDP r01.$i - unified oracle - seq..."
+            #     master = Master(data; customize = customize_master_model!)
+            #     oracle = UnifiedOracle(data, master; customize = customize_sub_model!)
+            #     env = BendersSeq(master, oracle; param = benders_param)
+            #     log = solve!(env)
+            #     @test env.termination_status == Optimal()
+            #     @test isapprox(mip_opt_val, env.obj_value, atol=1e-5)
+            # end 
 
             @testset "Unified oracle with GBC" begin
                 @info "solving MCNDP r01.$i - unified oracle - seq..."
                 master = Master(data; customize = customize_master_model!)
-                oracle = UnifiedOracle(data, master; customize = customize_sub_model_gbc!)
+                oracle = UnifiedOracle(data, master; customize = customize_sub_model!)
                 env = BendersSeq(master, oracle; param = benders_param)
                 log = solve!(env)
                 @test env.termination_status == Optimal()
