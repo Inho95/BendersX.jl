@@ -67,7 +67,7 @@ function solve_dcglp!(oracle::SplitOracle, x_value::Vector{Float64}, t_value::Ve
 
     # cuts for master
     hyperplanes = Vector{Hyperplane}()
-
+    # println("master value", x_value, t_value)
     while true
         state = DcglpState()
         state.total_time = @elapsed begin
@@ -110,9 +110,11 @@ function solve_dcglp!(oracle::SplitOracle, x_value::Vector{Float64}, t_value::Ve
             ω_x = state.values[:ω_x]
             ω_t = state.values[:ω_t]
             ω_0 = state.values[:ω_0]
+            # println("omega", ω_x, ω_t, ω_0)
             for i in 1:2
                 state.oracle_times[i] = @elapsed begin
                     if ω_0[i] >= oracle.param.zero_tol
+                        #  println("solved")
                          state.is_in_L[i], hyperplanes_a, state.f_x[i] = generate_cuts(typical_oracles[i], clamp.(ω_x[i] / ω_0[i], 0.0, 1.0), ω_t[i] / ω_0[i], tol_normalize = ω_0[i], time_limit = get_sec_remaining(log.start_time, time_limit))
 
                         if !state.is_in_L[i]
@@ -143,8 +145,10 @@ function solve_dcglp!(oracle::SplitOracle, x_value::Vector{Float64}, t_value::Ve
         check_lb_improvement!(state, log; zero_tol = oracle.param.zero_tol)
 
         is_terminated(state, log, oracle.param.dcglp_param, time_limit) && break
-
+        # println(benders_cuts[1])
+        # println(benders_cuts[2])
         add_constraints(dcglp, :con_benders, [benders_cuts[1]; benders_cuts[2]]) 
+        # write_to_file(dcglp, "dcglp_after_adding_cut.lp")
     end
 
     if log.iterations[end].LB >= oracle.param.zero_tol

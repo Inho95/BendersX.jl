@@ -43,7 +43,8 @@ function generate_cuts(oracle::UnifiedOracle, x_value::Vector{Float64}, t_value:
     
     set_normalized_rhs.(oracle.fixed_x_constraints, x_value)
     set_normalized_rhs.(oracle.model[:epigraph], -t_value)
-
+    # println("tval", t_value)
+    # write_to_file(oracle.model, "sub_$(t_value).lp")
     optimize!(oracle.model)
     
     if termination_status(oracle.model) == TIME_LIMIT
@@ -56,7 +57,7 @@ function generate_cuts(oracle::UnifiedOracle, x_value::Vector{Float64}, t_value:
     a_t = [-dual(oracle.model[:epigraph])]
     a_0 = objective_value(oracle.model) - a_x'*x_value + dual(oracle.model[:epigraph])*t_value[1]
     
-    return isapprox(dual_objective_value(oracle.model), 0, atol=oracle.param.zero_tol) ? (true, [Hyperplane(a_x, a_t, a_0)], [NaN]) : (false, [Hyperplane(a_x, a_t, a_0)], [NaN])
+    return isapprox(dual_objective_value(oracle.model), 0, atol=oracle.param.zero_tol) ? (true, [Hyperplane(a_x, a_t, a_0)], [t_value[1]]) : (false, [Hyperplane(a_x, a_t, a_0)], [Inf])
 end
 
 function model_reformulation!(model::Model, w0::Float64; x)
