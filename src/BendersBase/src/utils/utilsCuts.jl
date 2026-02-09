@@ -1,4 +1,4 @@
-export Hyperplane, aggregate, hyperplanes_to_expression
+export Hyperplane, aggregate, hyperplanes_to_expression, no_good
 
 """
     Hyperplane
@@ -101,5 +101,12 @@ function hyperplanes_to_expression(model::Model, hyperplanes::Vector{Hyperplane}
 end
 function hyperplanes_to_expression(model::Model, hyperplanes::Vector{Hyperplane}, x_var::Vector{VariableRef}, t_var::Vector{VariableRef})
     return @expression(model, [j in 1:length(hyperplanes)], hyperplanes[j].a_0 + hyperplanes[j].a_x' * x_var + hyperplanes[j].a_t' * t_var)
+end
+
+# for no good cut
+function no_good(model, zero_indices::Vector{Int}, one_indices::Vector{Int}, x_var::Vector{VariableRef})
+    return @expression(model,
+        1 - (sum(1 - x_var[i] for i in one_indices) +  sum(x_var[i] for i in zero_indices))
+        )
 end
 

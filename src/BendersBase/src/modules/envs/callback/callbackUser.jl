@@ -85,8 +85,13 @@ function user_callback(cb_data, master::Master, log::BendersBnBLog, param::Bende
                 # Generate cuts
                 state.oracle_time = @elapsed begin
                     state.is_in_L, hyperplanes, state.f_x = generate_cuts(callback.oracle, state.values[:x], state.values[:t]; time_limit = get_sec_remaining(log, param))
-                    cuts = !state.is_in_L ? hyperplanes_to_expression(master.model, hyperplanes, master.x, master.t) : []
-                    state.num_cuts += length(hyperplanes)
+                    if isempty(hyperplanes) && isempty(state.f_x)
+                        nogood = no_good(master.model, callback.oracle.zero_indices, callback.oracle.one_indices, master.x)
+                        cuts = [nogood]
+                    else
+                        cuts = !state.is_in_L ? hyperplanes_to_expression(master.model, hyperplanes, master.x, master.t) : []
+                        state.num_cuts += length(hyperplanes)
+                    end
                 end
 
                 # Add cuts

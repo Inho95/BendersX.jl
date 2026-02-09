@@ -67,7 +67,7 @@ function solve_dcglp!(oracle::SplitOracle, x_value::Vector{Float64}, t_value::Ve
 
     # cuts for master
     hyperplanes = Vector{Hyperplane}()
-    # println("master value", x_value, t_value)
+    println("master value", x_value, t_value)
     while true
         state = DcglpState()
         state.total_time = @elapsed begin
@@ -102,6 +102,7 @@ function solve_dcglp!(oracle::SplitOracle, x_value::Vector{Float64}, t_value::Ve
                 elseif termination_status(dcglp) == TIME_LIMIT
                     throw(TimeLimitException("Time limit reached during dcglp solving"))
                 else
+                    return false, [], [] # for no good cut
                     throw(UnexpectedModelStatusException("DCGLP master: $(termination_status(dcglp))"))
                 end
             end

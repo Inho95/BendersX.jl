@@ -127,6 +127,8 @@ mutable struct SplitOracle <: AbstractDisjunctiveOracle
     disjunctiveCutsByIndex::Vector{Vector{Hyperplane}}
     disjunctiveCuts::Vector{Hyperplane}
     splits::Vector{Tuple{SparseVector{Float64, Int}, Float64}}
+    zero_indices::Vector{Int64} # for no good cut
+    one_indices::Vector{Int64} # for no good cut
 
     # param should not be optional unless we have default software-free optimizer
     function SplitOracle(master::AbstractMaster, 
@@ -174,7 +176,9 @@ mutable struct SplitOracle <: AbstractDisjunctiveOracle
         disjunctiveCutsByIndex = [Vector{Hyperplane}() for i=1:master.dim_x]
         splits = Vector{Tuple{SparseVector{Float64, Int}, Float64}}()
 
-        new(param, dcglp, typical_oracles, disjunctiveCutsByIndex, Vector{Hyperplane}(), splits)
+        zero_indices, one_indices = Int[], Int[] # for no good cut
+
+        new(param, dcglp, typical_oracles, disjunctiveCutsByIndex, Vector{Hyperplane}(), splits, zero_indices, one_indices)
     end
 end
 
@@ -239,6 +243,10 @@ function generate_cuts(oracle::SplitOracle, x_value::Vector{Float64}, t_value::V
 
     # Retrieve zero and one indices if lifting is enabled
     zero_indices, one_indices = oracle.param.lift ? retrieve_zero_one(x_value, oracle.param.zero_tol) : (Int[], Int[])
+    
+    # for no good cut
+    oracle.zero_indices = zero_indices
+    oracle.one_indices = one_indices
 
     add_lifting_constraints!(oracle.dcglp, zero_indices, one_indices) 
 
