@@ -79,8 +79,8 @@ function customize_master_model!(model::Model, data::MCNDPData)
 end
 
 function customize_sub_model!(model::Model, data::MCNDPData, scen_idx::Int; x)
-optimizer = optimizer_with_attributes(
-        CPLEX.Optimizer, "CPXPARAM_Threads" => 7, "CPX_PARAM_EPRHS" => 1e-9, "CPX_PARAM_EPOPT" => 1e-9, "CPX_PARAM_NUMERICALEMPHASIS" => 1, MOI.Silent() => true)
+    optimizer = optimizer_with_attributes(
+            CPLEX.Optimizer, "CPXPARAM_Threads" => 7, "CPX_PARAM_EPRHS" => 1e-9, "CPX_PARAM_EPOPT" => 1e-9, "CPX_PARAM_NUMERICALEMPHASIS" => 1, MOI.Silent() => true)
 
     set_optimizer(model, optimizer)
 
