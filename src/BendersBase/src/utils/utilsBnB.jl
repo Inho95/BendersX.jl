@@ -83,13 +83,15 @@ mutable struct BendersBnBParam <: AbstractBendersBnBParam
     time_limit::Float64
     gap_tolerance::Float64
     verbose::Bool
+    forbidden_pattern::Any
 
     function BendersBnBParam(; 
                         time_limit::Float64 = 7200.0, 
                         gap_tolerance::Float64 = 1e-6, 
-                        verbose::Bool = true
+                        verbose::Bool = true,
+                        forbidden_pattern = []
                         ) 
-        new(time_limit, gap_tolerance, verbose)
+        new(time_limit, gap_tolerance, verbose, forbidden_pattern)
     end
 end 
 

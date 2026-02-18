@@ -69,7 +69,7 @@ function user_callback(cb_data, master::Master, log::BendersBnBLog, param::Bende
                 
                 # Check if node meets criteria
                 if (callback.params.node_count != -1 && n_count[] > callback.params.node_count) || 
-                   (callback.params.depth != -1 && node_depth[] < callback.params.depth)
+                   (callback.params.depth != -1 && node_depth[] > callback.params.depth)
                     process_node = false
                 end
             elseif (callback.params.node_count != -1 || callback.params.depth != -1) && solver_name(master.model) != "CPLEX"
@@ -77,20 +77,43 @@ function user_callback(cb_data, master::Master, log::BendersBnBLog, param::Bende
             end
             
             if process_node
+                node_depth = Ref{CPXINT}()
+                CPXcallbackgetinfoint(cb_data, CPXCALLBACKINFO_NODEDEPTH, node_depth)
+                @info "node depth", node_depth[]
+
                 # Create state and get current variable values
                 state = BendersBnBState()
                 state.values[:x] = JuMP.callback_value.(cb_data, master.x)
                 state.values[:t] = JuMP.callback_value.(cb_data, master.t)
                 
+                @assert CPXcallbackgetlocallb(cb_data, callback.oracle.lb, 0, length(state.values[:x]) - 1) == 0
+                @assert CPXcallbackgetlocalub(cb_data, callback.oracle.ub, 0, length(state.values[:x]) - 1) == 0
+
                 # Generate cuts
+                pattern_add = false
                 state.oracle_time = @elapsed begin
                     state.is_in_L, hyperplanes, state.f_x = generate_cuts(callback.oracle, state.values[:x], state.values[:t]; time_limit = get_sec_remaining(log, param))
                     if isempty(hyperplanes) && isempty(state.f_x)
                         nogood = no_good(master.model, callback.oracle.zero_indices, callback.oracle.one_indices, master.x)
                         cuts = [nogood]
+                        push!(param.forbidden_pattern, (copy(callback.oracle.zero_indices), copy(callback.oracle.one_indices)))
+                        println("no-good")
+                        pattern_add = true
                     else
                         cuts = !state.is_in_L ? hyperplanes_to_expression(master.model, hyperplanes, master.x, master.t) : []
                         state.num_cuts += length(hyperplanes)
+                        println("disjunctive")
+                    end
+                end
+
+                # Check forbidden pattern
+                if !isempty(param.forbidden_pattern) && !pattern_add
+                    for (zero_indices, one_indices) in param.forbidden_pattern
+                        tol = 1e-6
+                        matches = all(abs.(state.values[:x][zero_indices]) .<= tol) && all(abs.(state.values[:x][one_indices] .- 1) .<= tol)
+                        if matches
+                            println("forbidden pattern found in user")
+                        end
                     end
                 end
 

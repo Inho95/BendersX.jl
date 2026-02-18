@@ -46,7 +46,23 @@ function lazy_callback(cb_data, master::Master, log::BendersBnBLog, param::Bende
 
         state.values[:x] = JuMP.callback_value.(cb_data, master.x)
         state.values[:t] = JuMP.callback_value.(cb_data, master.t)
+        
+        # Check forbidden pattern
+        if !isempty(param.forbidden_pattern)
+            for (zero_indices, one_indices) in param.forbidden_pattern
+                tol = 1e-6
+                matches = all(abs.(state.values[:x][zero_indices]) .<= tol) && all(abs.(state.values[:x][one_indices] .- 1) .<= tol)
+                if matches
+                    println("no-good")
+                    println("forbidden pattern found in user")
 
+                    nogood = no_good(master.model, zero_indices, one_indices, master.x)
+                    cut_constraint = @build_constraint(0 >= nogood)
+                    MOI.submit(master.model, MOI.LazyConstraint(cb_data), cut_constraint)
+                    return
+                end
+            end
+        end
 
         state.oracle_time = @elapsed begin
             state.is_in_L, hyperplanes, state.f_x = generate_cuts(callback.oracle, state.values[:x], state.values[:t]; time_limit = param.time_limit)

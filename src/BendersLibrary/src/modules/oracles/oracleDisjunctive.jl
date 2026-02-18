@@ -60,6 +60,7 @@ mutable struct SplitOracleParam <: AbstractOracleParam
     lift::Bool 
     adjust_t_to_fx::Bool
     zero_tol::Float64
+    exact_lift::Bool
     
 
     function SplitOracleParam(dcglp_param::DcglpParam; 
@@ -71,10 +72,11 @@ mutable struct SplitOracleParam <: AbstractOracleParam
                                     reuse_dcglp::Bool=true,
                                     lift::Bool=false,
                                     adjust_t_to_fx::Bool=false,
-                                    zero_tol=1e-9) 
+                                    zero_tol=1e-9,
+                                    exact_lift=false) 
         add_bcuts_to_master = add_benders_cuts_to_master === true ? 1 : add_benders_cuts_to_master === false ? 0 : add_benders_cuts_to_master in (0, 1, 2) ? add_benders_cuts_to_master : throw(ArgumentError("`add_benders_cuts_to_master` must be true, false, or an integer in {0, 1, 2}"))
         
-        new(dcglp_param, norm, split_index_selection_rule, disjunctive_cut_append_rule, strengthened, add_bcuts_to_master, fraction_of_benders_cuts_to_master, reuse_dcglp, lift, adjust_t_to_fx, zero_tol)
+        new(dcglp_param, norm, split_index_selection_rule, disjunctive_cut_append_rule, strengthened, add_bcuts_to_master, fraction_of_benders_cuts_to_master, reuse_dcglp, lift, adjust_t_to_fx, zero_tol, exact_lift)
     end
 end
 
@@ -129,6 +131,8 @@ mutable struct SplitOracle <: AbstractDisjunctiveOracle
     splits::Vector{Tuple{SparseVector{Float64, Int}, Float64}}
     zero_indices::Vector{Int64} # for no good cut
     one_indices::Vector{Int64} # for no good cut
+    lb::Vector{Float64} # for exact lifting
+    ub::Vector{Float64} # for exact lifting
 
     # param should not be optional unless we have default software-free optimizer
     function SplitOracle(master::AbstractMaster, 
@@ -177,8 +181,9 @@ mutable struct SplitOracle <: AbstractDisjunctiveOracle
         splits = Vector{Tuple{SparseVector{Float64, Int}, Float64}}()
 
         zero_indices, one_indices = Int[], Int[] # for no good cut
+        lb, ub = fill(NaN, master.dim_x), fill(NaN, master.dim_x) # for no good cut
 
-        new(param, dcglp, typical_oracles, disjunctiveCutsByIndex, Vector{Hyperplane}(), splits, zero_indices, one_indices)
+        new(param, dcglp, typical_oracles, disjunctiveCutsByIndex, Vector{Hyperplane}(), splits, zero_indices, one_indices, lb, ub)
     end
 end
 
@@ -241,9 +246,16 @@ function generate_cuts(oracle::SplitOracle, x_value::Vector{Float64}, t_value::V
     set_normalized_rhs.(oracle.dcglp[:conx], x_value)
     set_normalized_rhs.(oracle.dcglp[:cont], t_value)
 
-    # Retrieve zero and one indices if lifting is enabled
-    zero_indices, one_indices = oracle.param.lift ? retrieve_zero_one(x_value, oracle.param.zero_tol) : (Int[], Int[])
-    
+    zero_indices, one_indices = nothing, nothing
+    if !oracle.param.exact_lift
+        # Retrieve zero and one indices if lifting is enabled
+        zero_indices, one_indices = oracle.param.lift ? retrieve_zero_one(x_value, oracle.param.zero_tol) : (Int[], Int[])
+    else
+        sum_lb_ub = oracle.lb + oracle.ub
+        zero_indices = Int.(findall(i -> abs(sum_lb_ub[i]) <= oracle.param.zero_tol, eachindex(sum_lb_ub)))
+        one_indices  = Int.(findall(i -> abs(sum_lb_ub[i] - 2.0) <= oracle.param.zero_tol, eachindex(sum_lb_ub)))
+    end
+
     # for no good cut
     oracle.zero_indices = zero_indices
     oracle.one_indices = one_indices
