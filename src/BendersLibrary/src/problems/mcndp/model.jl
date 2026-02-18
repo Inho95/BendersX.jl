@@ -79,8 +79,16 @@ function customize_master_model!(model::Model, data::MCNDPData)
 end
 
 function customize_sub_model!(model::Model, data::MCNDPData, scen_idx::Int; x)
+    # optimizer = optimizer_with_attributes(
+    #         CPLEX.Optimizer, "CPXPARAM_Threads" => 7, "CPX_PARAM_EPRHS" => 1e-9, "CPX_PARAM_EPOPT" => 1e-9, "CPX_PARAM_NUMERICALEMPHASIS" => 1, MOI.Silent() => true)
+
+    # gurobi GPU
     optimizer = optimizer_with_attributes(
-            CPLEX.Optimizer, "CPXPARAM_Threads" => 7, "CPX_PARAM_EPRHS" => 1e-9, "CPX_PARAM_EPOPT" => 1e-9, "CPX_PARAM_NUMERICALEMPHASIS" => 1, MOI.Silent() => true)
+            Gurobi.Optimizer, "Threads" => 7, "Method" => 6, "PDHGGPU" => 1, "Crossover" => 1, "OutputFlag" => 1)
+
+    # CuPDLPx
+    # optimizer = optimizer_with_attributes(
+    #     CuPDLPx.Optimizer, "verbose" => true, "has_pock_chambolle_alpha" => false, "bound_objective_rescaling" => false, "l_inf_ruiz_iterations" => 10, "iteration_limit" => 999999999)
 
     set_optimizer(model, optimizer)
 
